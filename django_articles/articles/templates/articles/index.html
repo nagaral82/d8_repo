@@ -1,0 +1,21 @@
+{% extends 'articles/layout.html' %}
+{% load app_filters %}
+{% load static %}
+{% block extra_css %}
+            <link rel="stylesheet" type="text/css" href="{% static 'articles/css/bootstrap.css' %}"/>
+        {% endblock %}
+{% block title %}
+ <h1>Articles</h1>
+{% endblock %}
+{% block content %}
+
+
+
+<ul class="messages">
+    {% for message in messages %}
+        <li class="info">{{ message }}</li>
+    {% endfor %}
+</ul>
+
+<div id="articles"><span class="loader-icon glyphicon glyphicon-refresh glyphicon-refresh-animate"></span></div>
+{% endblock %}

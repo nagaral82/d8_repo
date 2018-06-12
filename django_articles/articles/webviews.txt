@@ -1,0 +1,70 @@
+# we will reuse the web urls later, if needed and this is only for just reference
+
+from django.shortcuts import render, redirect
+from .models import Articles
+from django.contrib import messages
+from django.contrib.auth.models import User
+
+from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponse
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Articles
+from .serializers import ArticlesSerializer
+from .helpers import VoteHelpers
+
+# Create your views here.
+users = User.objects.all()
+def create(request):
+    context = {}
+    uids = {}
+    if (request.method == 'POST'):
+        title = request.POST['title']
+        author = request.POST['author']
+        content = request.POST['content']
+        article = Articles(title=title, author=author, content=content)
+        article.save()
+        messages.add_message(request, messages.INFO, 'Article created successfully.')
+        return redirect('/')
+    else:
+        for user in users:
+            uids[user.id] = user.username
+        context = {'names': uids}
+        return render(request, 'articles/add.html', context)
+
+def edit(request, id):
+    uids = {}
+    articles = Articles.objects.get(id=id)
+    for user in users:
+        uids[user.id] = user.username
+    context = {'articles': articles, 'names': uids, 'helpers': helpers}
+    return render(request, 'articles/edit.html', context)
+
+def update(request, id):
+    article = Articles.objects.get(id=id)
+    article.title = request.POST['title']
+    article.author = request.POST['author']
+    article.content = request.POST['content']
+    article.save()
+    messages.add_message(request, messages.INFO, 'Article updated successfully.')
+    return redirect('/')
+
+def delete(request, id):
+    article = Articles.objects.get(id=id)
+    article.delete()
+    messages.add_message(request, messages.INFO, 'Article deleted successfully.')
+    return redirect('/')
+
+def upvote(request, id):
+    #user_id = request.user.id
+    article = Articles.objects.get(id=id)
+    #article.votes.up(user_id)
+    VoteHelpers().upVote(article, 0)
+    messages.add_message(request, messages.INFO, 'Article upvoted successfully.')
+    return redirect('/')
+
+def resetvote(request):
+    VoteHelpers().resetVoteCounter()
+    messages.add_message(request, messages.INFO, 'Vote counter reset done for all articles!!')
+    return redirect('/')

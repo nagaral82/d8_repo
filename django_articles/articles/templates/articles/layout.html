@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1"/>
+        {% load static %}
+
+        <link rel="stylesheet" type="text/css" href="{% static 'articles/css/django.css' %}"/>
+        <link rel="stylesheet" type="text/css" href="{% static 'articles/css/custom.css' %}"/>
+        {% block extra_css %}
+
+        {% endblock %}
+    </head>
+    <body>
+    {% load app_filters %}
+    <script type="text/javascript">
+        var $API_ARTICLE_POST_URL = "{% settings_value "API_ARTICLE_POST_URL" %}"
+        var $API_VOTE_POST_URL = "{% settings_value "API_VOTE_POST_URL" %}"
+        var $API_ARTICLE_GET_URL = "{% settings_value "API_ARTICLE_GET_URL" %}"
+        var $CSRF_TOKEN = "{{csrf_token}}"
+    </script>
+    <div role="banner" id="top">
+  <div class="container">
+    <a class="logo" href="{% url 'articles_index' %}">Django</a>
+    <p class="meta">The web framework for perfectionists with deadlines.</p>
+    <div class="menu-button"><i class="icon icon-reorder"></i><span>Menu</span></div><div role="navigation" class="nav-menu-on">
+      <ul>
+        <li>
+          <a href="{% url 'create' %}">Create</a>
+        </li>
+           <li>
+          <a href="{% url 'resetvote' %}">Reset Counter</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+    <div class="copy-banner">
+      <div class="container">
+           {% block title %}
+          {% endblock %}
+      </div>
+    </div>
+
+<div id="billboard"></div>
+<div class="container">
+    <div id="docs-content">
+        {% block content %}
+        {% endblock %}
+    </div>
+</div>
+    </div>
+{% block scripts %}
+    <script src="{% static 'articles/js/jquery-3.3.1.min.js' %}"></script>
+   <script src="{% static 'articles/js/articles.js' %}"></script>
+{% endblock %}
+</body>
+</html>

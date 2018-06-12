@@ -1,0 +1,27 @@
+{% extends 'articles/layout.html' %}
+{% block title %}
+ <h3 class="text-primary">Create Article</h3>
+{% endblock %}
+{% block content %}
+<ul class="messages">
+    {% for message in messages %}
+        <li class="info">{{ message }}</li>
+    {% endfor %}
+</ul>
+    <form id="create-article" method="POST" action="create">
+        {% csrf_token %}
+        <div class="form-group">
+            <input placeholder="Title" class="form-control" type="text" name="title" required="required"/>
+        </div>
+        <div class="form-group">
+            <textarea placeholder="Content" rows="5" class="form-control" name="content" required="required"></textarea>
+        </div>
+        <div class="form-group">
+            <input placeholder="Author" class="form-control" type="text" name="author" required="required"/>
+        </div>
+        <div class="form-group">
+             <button type="submit" class="btn btn-sm btn-primary"><span class="glyphicon"></span> Save</button>
+            <span id="loading-indicator-0" class="loader-icon glyphicon"></span>
+        </div>
+    </form>
+{% endblock %}

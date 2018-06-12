@@ -1,0 +1,20 @@
+{% if error %}
+   err {{ error }}
+{% endif %}
+{% for member in articles_list %}
+    <div class="section">
+         <h2>{{ member.title }}</h2>
+        {% autoescape off %}{{member.content}}{% endautoescape %}
+        <p>
+        <div class="entry-byline font-secondary">
+                Posted <time title="{{member.created_at}}">{{member.created_at}}</time>
+            by <mark><span class="entry-author">{{member.author}}</span></mark>
+                 <a id="article-{{member.id}}" data-article-id="{{member.id}}" title="Upvote" class="button button-default article-upvote" href="javascript:void(0)">
+                <span class="glyphicon glyphicon-thumbs-up"></span>
+            </a>
+            <span id="data-count-article-id-{{member.id}}">({{member.num_vote_up}})</span>
+            <span id="loading-indicator-{{member.id}}" class="loader-icon glyphicon"></span>
+    </div>
+    </p>
+    </div>
+{% endfor %}
