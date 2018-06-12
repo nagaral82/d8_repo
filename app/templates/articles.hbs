@@ -1,0 +1,22 @@
+<h1 class="text-left">Articles</h1>
+<div class="alert"></div> 
+{{#each model as |article index|}}
+<article class="blog-post">
+    <div class="blog-post-header">
+      <h3 class="blog-post-title">{{article.title}}</h3>
+      <div class="blog-post-meta">
+		  Posted by <mark><span class="blog-post-author">{{article.author}}</span></mark>
+      </div>
+    </div>
+    <div class="blog-post-body">
+		{{{article.content}}}
+    </div>
+    <div class="blog-post-footer">
+         <a id="article-{{article.id}}" title="Upvote" class="article-upvote" href="javascript:void(0)" {{action "upVote" article.id on="click" }}>
+			<span class="glyphicon glyphicon-thumbs-up"></span>
+		</a>
+		<span id="data-count-article-id-{{article.id}}">({{article.num_vote_up}})</span>
+		<span id="loading-indicator-{{article.id}}" class="loader-icon glyphicon"></span>
+    </div>
+  </article>  
+ {{/each}}
