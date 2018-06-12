@@ -1,0 +1,20 @@
+services:
+ app_helper_libs.country_service:
+   class: Drupal\app_helper_libs\Services\CountryService
+ app_helper_libs.slider_service:
+   class: Drupal\app_helper_libs\Services\SliderService
+ app_helper_libs.quotes_service:
+   class: Drupal\app_helper_libs\Services\QuotesService
+ app_helper_libs.youtube_service:
+   class: Drupal\app_helper_libs\Services\YoutubeThumbnailService
+ app_helper_libs.term_helper:
+   class: Drupal\app_helper_libs\Services\TaxonomyService
+ app_helper_libs.file_helper:
+   class: Drupal\app_helper_libs\Services\FileService
+ app_helper_libs.route_subscriber:
+    class: Drupal\app_helper_libs\Routing\RouteSubscriber
+    tags:
+      - { name: event_subscriber }
+ entity.autocomplete_matcher1:
+    class: Drupal\app_helper_libs\EntityAutocompleteMatcher
+    arguments: ['@plugin.manager.entity_reference_selection']

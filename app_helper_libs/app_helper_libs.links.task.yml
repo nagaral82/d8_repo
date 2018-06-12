@@ -1,0 +1,33 @@
+apphelper.wisdom_filters_content_type_settings:
+  route_name: apptags.wisdom_filters_content_type_settings
+  base_route: apphelper.wisdom_filters_content_type_settings
+  title: Content Type Mapping 
+  weight: 10
+apphelper.see_all_popular_topic_default_settings:
+  route_name: apptags.see_all_popular_topic_default_settings
+  base_route: apphelper.wisdom_filters_content_type_settings
+  title: SeeAll Topics
+  weight: 20
+  
+apphelper.popular_topic_default_settings:
+  route_name: apptags.popular_topic_default_settings
+  base_route: apphelper.wisdom_filters_content_type_settings
+  title: Popular Topics 
+  weight: 30
+  
+apphelper.blog_filters_content_type_settings:
+  route_name: apptags.blog_filters_content_type_settings
+  base_route: apphelper.blog_filters_content_type_settings
+  title: Blog Content Type Mapping 
+  weight: 10
+apphelper.blog_see_all_popular_topic_default_settings:
+  route_name: apptags.blog_see_all_popular_topic_default_settings
+  base_route: apphelper.blog_filters_content_type_settings
+  title: Blog SeeAll Topics
+  weight: 20
+  
+apphelper.blog_popular_topic_default_settings:
+  route_name: apptags.blog_popular_topic_default_settings
+  base_route: apphelper.blog_filters_content_type_settings
+  title: Blog Popular Topics 
+  weight: 30

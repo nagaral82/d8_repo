@@ -1,0 +1,56 @@
+apptags.wisdom_filters_content_type_settings:
+  path: '/admin/config/app/filters'
+  defaults:
+    _form: '\Drupal\app_helper_libs\Form\FilterContenttypeSettingsForm'
+    _title: 'Filters ContentType'
+  requirements:
+    _permission: 'administer site configuration'
+apptags.see_all_popular_topic_default_settings:
+  path: '/admin/config/app/seeallpopulartopic'
+  defaults:
+    _form: '\Drupal\app_helper_libs\Form\SeeAllPopularTopicSettingsForm'
+    _title: 'SeeAllPopularTopic'
+  requirements:
+    _permission: 'administer site configuration'    
+apptags.popular_topic_default_settings:
+  path: '/admin/config/app/populartopic'
+  defaults:
+    _form: '\Drupal\app_helper_libs\Form\PopularTopicSettingsForm'
+    _title: 'Popular Topic'
+  requirements:
+    _permission: 'administer site configuration'
+apptags.program_incident_route:
+  path: /yoga-meditation-modal
+  defaults:
+    _controller: '\Drupal\app_helper_libs\Controller\ModalController::showOptions'
+  requirements:
+    _access: 'TRUE'
+apptags.blog_filters_content_type_settings:
+  path: '/admin/config/app/filters/blog'
+  defaults:
+    _form: '\Drupal\app_helper_libs\Form\BlogFilterContenttypeSettingsForm'
+    _title: 'Blog Filters ContentType'
+  requirements:
+    _permission: 'administer site configuration'
+apptags.blog_see_all_popular_topic_default_settings:
+  path: '/admin/config/app/seeallpopulartopic/blog'
+  defaults:
+    _form: '\Drupal\app_helper_libs\Form\BlogSeeAllPopularTopicSettingsForm'
+    _title: 'Blog SeeAllPopularTopic'
+  requirements:
+    _permission: 'administer site configuration'    
+apptags.blog_popular_topic_default_settings:
+  path: '/admin/config/app/populartopic/blog'
+  defaults:
+    _form: '\Drupal\app_helper_libs\Form\BlogPopularTopicSettingsForm'
+    _title: 'Blog Popular Topic'
+  requirements:
+    _permission: 'administer site configuration'
+wisdom.display_content_with_filters:
+  path: /wisdom/{paramkey}/{paramdata}
+  defaults:
+    _controller: '\Drupal\app_helper_libs\Controller\WisdomController::showContents'
+    _title: 'Wisdom Home Page'
+    paramkey: 'type'
+  requirements:
+    _access: 'TRUE'
