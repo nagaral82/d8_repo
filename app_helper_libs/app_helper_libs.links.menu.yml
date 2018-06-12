@@ -1,0 +1,43 @@
+app.admin_wisdom_filters:
+  title: Wisdom Filters Configuration
+  route_name: apptags.wisdom_filters_content_type_settings
+  parent: app.admin_index
+  description: 'Wisdom Filters Configuration'
+  position: left
+  weight: -30
+app.admin_see_all_popular_topic_index:
+  title: SeeAllTopics Configuration
+  route_name: apptags.see_all_popular_topic_default_settings
+  parent: app.admin_wisdom_filters
+  description: 'See All Popular Topic Configuration'
+  position: left
+  weight: -40  
+app.admin_popular_topic_index:
+  title: PopularTopic Configuration
+  route_name: apptags.popular_topic_default_settings
+  parent: app.admin_wisdom_filters
+  description: 'Popular Topic Configuration'
+  position: left
+  weight: -30
+  
+app.admin_blog_filters:
+  title: Blog Filters Configuration
+  route_name: apptags.blog_filters_content_type_settings
+  parent: app.admin_index
+  description: 'Blog Filters Configuration'
+  position: left
+  weight: -30
+app.admin_blog_see_all_popular_topic_index:
+  title: Blog SeeAllTopics Configuration
+  route_name: apptags.blog_see_all_popular_topic_default_settings
+  parent: app.admin_blog_filters
+  description: 'Blog - See All Popular Topic Configuration'
+  position: left
+  weight: -40  
+app.admin_blog_popular_topic_index:
+  title: Blog PopularTopic Configuration
+  route_name: apptags.blog_popular_topic_default_settings
+  parent: app.admin_blog_filters
+  description: 'Blog - Popular Topic Configuration'
+  position: left
+  weight: -30

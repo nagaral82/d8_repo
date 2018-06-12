@@ -1,0 +1,1154 @@
+<?php
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use \Drupal\Core\Cache\Cache;
+use \Drupal\node\Entity\NodeType;
+use Drupal\views\ViewExecutable;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\Plugin\views\query\QueryPluginBase;
+use Drupal\taxonomy\Entity\Term;
+use Drupal\Core\Render\Element;
+use Drupal\Core\Url;
+use \Drupal\views\Views;
+use Drupal\paragraphs\Entity\Paragraph;
+use \Drupal\Core\Routing;
+use Drupal\Core\Language\LanguageInterface;
+use Drupal\Component\Utility\Html;
+use Drupal\Core\Breadcrumb\Breadcrumb;
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Link;
+
+/**
+ * Implements hook_entity_delete().
+ *
+ * Check for taxonomy term deletion and invalidate the cache tags.
+ */
+function app_helper_libs_taxonomy_term_delete(Drupal\Core\Entity\EntityInterface $entity) {
+	//Cache::invalidateTags(array('vid:'.$entity->getVocabularyId(), 'term:'.$entity->getName()));
+	$cid = 'cache_'.$entity->getVocabularyId().'_'.$entity->getName();
+	\Drupal::cache()->delete($cid);
+	Cache::invalidateTags(array('term:getTermByCondition'));
+}
+
+/**
+ * Implements hook_theme().
+ */
+function app_helper_libs_theme() {
+  return [
+    'inline_entity_form_entity_table1' => [
+      'render element' => 'form',
+      'function' => 'theme_inline_entity_form_entity_table1',
+    ],
+	'embed_views_block' => [
+      'variables' => ['block_title' => NULL, 'block_content' => NULL],
+    ],
+  ];
+}
+
+/**
+ * Implements hook_entity_update().
+ *
+ * Check for taxonomy term updation and invalidate the cache tags.
+ */
+function app_helper_libs_taxonomy_term_update(Drupal\Core\Entity\EntityInterface $entity) {
+	Cache::invalidateTags(array('term:getTermByCondition'));
+}
+
+/**
+ * Implements hook_entity_insert().
+ *
+ * Check for taxonomy term insertion and invalidate the cache tags.
+ */
+function app_helper_libs_taxonomy_term_insert(Drupal\Core\Entity\EntityInterface $entity) {
+	Cache::invalidateTags(array('term:getTermByCondition'));
+}
+
+
+/**
+ * Implements hook_views_data_alter().
+ */
+function app_helper_libs_views_data_alter(array &$data) {
+  // Custom views handler for Image / Video attachments
+  $data['node']['app_image_attachment_handler'] = array(
+    'title' => t('app Image Attachment Handler'),
+    'field' => array(
+      'title' => t('app Image Attachment Handler'),
+      'help' => t('Display the image attachment for a content and if not present display the video thumbnail.'),
+      'id' => 'app_image_attachment_handler',
+    ),
+  );
+  $data['node']['app_gallery_handler'] = array(
+    'title' => t('app Gallery Handler'),
+    'field' => array(
+      'title' => t('app Gallery Handler'),
+      'help' => t('Display the gallery images based on the Media Reference fields for a node.'),
+      'id' => 'app_gallery_handler',
+    ),
+  );
+  $data['node']['app_content_title_handler'] = array(
+    'title' => t('app Translated Content Title'),
+    'field' => array(
+      'title' => t('app Translated Content Title'),
+      'help' => t('Display the translated content for any node.'),
+      'id' => 'app_content_title_handler',
+    ),
+  );
+  $data['node']['app_content_webinar_url_handler'] = array(
+  		'title' => t('app Webinar URL Handler'),
+  		'field' => array(
+  				'title' => t('app Webinar URL Handler'),
+  				'help' => t('Display the Join online Events.'),
+  				'id' => 'app_content_webinar_url_handler',
+  		),
+  );
+}
+
+
+/**
+* Implements hook_ui_patterns_info_alter().
+*/
+function app_helper_libs_ui_patterns_info_alter(&$definitions) {
+  foreach ($definitions as $plugin => $definition) {
+	$definitions[$plugin]['class'] = 'Drupal\app_helper_libs\Plugin\UiPatterns\Pattern\LibraryPattern';
+  }
+}
+
+
+function updateTermEntity($name, $parent_id = 0) {
+	$tid = 0;
+	$termObject = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties(['name' => $name, 'vid' => 'app_category']);
+	if ($termObject) {
+		$termObject = reset($termObject);
+		$termObject->parent = array('target_id' => $parent_id);
+		$termObject->save();
+		$tid = $termObject->get('tid')->value;
+	} else {
+		$term = \Drupal\taxonomy\Entity\Term::create([
+			'vid' => 'app_category',
+			'name' => $name,
+			'description' => [
+				'format' => 'full_html',
+			],
+			//'parent' => array($parent_id),
+		]);
+		if ($parent_id) {
+			$term->parent = array('target_id' => $parent_id);
+		}
+		$term->save();
+		$tid = $term->get('tid')->value;
+	}
+	return $tid;
+}
+
+/**
+* Implements hook_ENTITY_TYPE_view().
+*/
+function app_helper_libs_node_view(array &$build, EntityInterface $node, EntityViewDisplayInterface $display, $view_mode) {
+	if ($display->getComponent('type') && $node->isPublished()) {
+		$content_type = '';
+		switch ($node->bundle()) {
+			case 'app_videos';
+							$content_type = 'Videos';
+							break;
+			case 'app_posts':
+							$content_type = 'Articles';
+							break;
+			case 'app_podcasts':
+							$content_type = 'Podcasts';
+							break;
+			default:
+							$content_type = $node->bundle();
+		}
+
+	//$build['type'] = array('#markup' => $node->getTitle()."#".$content_type);
+	$content_url = $node->url('canonical', array(
+		'language' => $node->language(),
+	));
+	$build['type'] = array('content_title' => $node->getTitle(), 'content_type' => $content_type, 'content_url' => $content_url);
+	}
+	if ($display->getComponent('title') && $node->isPublished()) {
+		//$build['title'] = array('#markup' => 'title'.$node->getTitle());
+	}
+}
+
+/**
+* Implements hook_entity_extra_field_info().
+*/
+function app_helper_libs_entity_extra_field_info() {
+	$extra = array();
+	foreach (NodeType::loadMultiple() as $bundle) {
+		$extra['node'][$bundle->id()]['display']['title'] = array(
+		  'label' => t('Content Title'),
+		  'weight' => 5,
+		  'visible' => FALSE,
+		);
+		$extra['node'][$bundle->id()]['display']['type'] = array(
+		  'label' => t('Type'),
+		  'weight' => 5,
+		  'visible' => FALSE,
+		);
+	}
+	return $extra;
+}
+
+/**
+ * Implements hook_form_alter
+ *
+ */
+function app_helper_libs_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+  $active_theme = \Drupal::service('theme.manager')->getActiveTheme()->getName();
+  if ($form_id == "views_exposed_form" && $active_theme == 'apptheme') {
+	$form['combine']['#weight'] = 9;
+	$view = $form_state->get('view');
+	$query_params1 = \Drupal::request()->query->all();
+	$query_params = $form_state->getUserInput();
+	unset($form['langcode']['#options']['All']);
+	// Dependent Filters drop down based on language
+	$langcode = \Drupal::request()->query->get('langcode');
+	if (!$langcode || $langcode == 'All') {
+		$langcode = \Drupal::service('language_manager')->getCurrentLanguage(LanguageInterface::TYPE_INTERFACE)->getId();
+	}
+	//$langcode = \Drupal::service('language_manager')->getCurrentLanguage(LanguageInterface::TYPE_INTERFACE)->getId();
+	$form['langcode']['#default_value'] = $form['langcode']['#value'] = $langcode;
+	$display_id = ($view->display_handler->isDefaulted('filters')) ? 'default' : $view->current_display;
+	// For my bookmarks sorting order
+	if ($active_theme == 'apptheme' && $view->storage->id() == 'my_bookmarks' && $display_id == 'block_18') {
+	  unset($form['sort_order']['#title']);
+	  unset($form['sort_by']['#title']);
+	  $form['sort_by']['#attributes'] = ['style' => 'display:none;'];
+	  krsort($form['sort_order']['#options']);
+	}
+	// For Wisdom
+	if ($langcode && $view->storage->id() == 'wisdom_grid_view' && $display_id == 'block_8') {
+		$dependentFilters = [
+			'type' => ['config_key' => 'content_type_by_lang.', 'langcodes' => [$langcode]],
+			'topic' => ['config_key' => 'popular_topic.', 'langcodes' => [$langcode]],
+			'all_topics' => ['config_key' => 'see_all_popular_topic.', 'langcodes' => [$langcode]],
+		];
+		updateDependentFilters($form, $form_state, $dependentFilters);
+	}
+	// For Blog
+	if ($langcode && $view->storage->id() == 'wisdom_grid_view' && $display_id == 'block_19') { // to be done
+		$dependentFilters = [
+			'type' => ['config_key' => 'blog_content_type_by_lang.', 'langcodes' => [$langcode]],
+			'topic' => ['config_key' => 'blog_popular_topic.', 'langcodes' => [$langcode]],
+			'all_topics' => ['config_key' => 'blog_see_all_popular_topic.', 'langcodes' => [$langcode]],
+		];
+		updateDependentFilters($form, $form_state, $dependentFilters);
+	}
+	if ($view->storage->id() == 'man_mission_mystic_tabs_pages') {
+		$tids = getTidByName(['Man', 'Mystic', 'Mission']);
+		//print_r($tids)
+		$newfilterOptions['All'] = 'View All';
+		$newfilterOptions += taxonomy_tid_to_name_url($tids);
+		$form['section']['#options'] = $newfilterOptions;
+	}
+	$current_uri = \Drupal::request()->getRequestUri();
+	$http_refer = parse_url(\Drupal::request()->server->get('HTTP_REFERER'));
+	$new_query_params = [];
+	if (isset($http_refer['query'])) {
+		parse_str($http_refer['query'], $new_query_params);
+	}
+	//\Drupal::logger('query_params1')->info('<pre>'.print_r(parse_url($http_refer), TRUE).'</pre>');
+     if (!$query_params1 || (isset($http_refer['query']) && ($http_refer['query'] == 'langcode=en'))) {
+			$session = getBEFStoredData($view, NULL, TRUE);
+	  }
+	  else {
+		$session = getBEFStoredData($view);
+	  }
+	$sql_fields = get_filter_sql_fields();
+	$current_path = \Drupal::service('path.current')->getPath();
+	$path_alias = \Drupal::service('path.alias_manager')->getAliasByPath($current_path);
+	$parameters = \Drupal::routeMatch()->getParameters();
+    $paramkey = $parameters->get('paramkey');
+    $paramdata = $parameters->get('paramdata');
+	foreach ($sql_fields as $db_field => $session_field) {
+		if (isset($new_query_params[$db_field])) {
+			$form[$db_field]['#value'] = $session[$session_field];
+			//drupal_set_message(print_r($form[$db_field]['#value'], TRUE));
+		}
+	}
+	if (!$new_query_params) {
+		get_mysql_query_params($query_params1, $form);
+	}
+	if ($paramkey == 'type' && $paramdata) {
+		$form['type']['#value'] = [$paramdata => $paramdata];
+	}
+	// For Sort options
+	if (isset($session['bef_sort_value'])) {
+		$form['sort_bef_combine']['#value'] = $session['bef_sort_value'];
+	}
+	$sort = \Drupal::request()->query->get('sort_bef_combine');
+	  if (!trim($sort)) {
+		$form['sort_bef_combine']['#value'] = 'created DESC';
+	  }
+  }
+  //print $form_id;
+  if ($form_id == "contact_message_global_contact_form_form") {
+	  //print '<pre>';print_r($form['message']);print '</pre>';
+	  $form['message']['widget'][0]['value']['#attributes'] = ['placeholder' => 'Your message here'];
+	  $form['mail']['#attributes'] = ['placeholder' => 'Your Email'];
+	  $form['mail']['#suffix'] = '<span class="valid-email" style="display: inline-block;"><img src="'.'/'.\Drupal::theme()->getActiveTheme()->getPath().'/assets/check-mark.svg"></span><span class="in-valid-email" style="display: none;"><img src="'.'/'.\Drupal::theme()->getActiveTheme()->getPath().'/assets/cancel.svg"></span>';
+	  $form['mail']['#title'] = t('Email');
+  }
+  if ($form_id == "comment_comment_form" || $form_id == 'comment_comment_delete_form') {
+      if ($form_id == "comment_comment_form") {
+        $form['comment_body']['widget'][0]['#format'] = 'plain_text';
+        $form['actions']['submit']['#value'] = t('Post A Comment');
+        $form['actions']['submit']['#attributes']['class'][]= "btn btn-app-1";
+        $form['actions']['preview']['#access'] = FALSE;
+      }
+    $allowed_actions = ['submit'];
+    $comment = \Drupal::routeMatch()->getParameter('comment');
+    if ($comment) {
+        $cid = $comment->get('cid')->value;
+        if ($cid) {
+            $nid = db_query("SELECT entity_id FROM {comment_field_data} WHERE cid = :cid", array(':cid' => $cid))->fetchField();
+            $form_state->set('node_id', $nid);
+            $form_state->set('comment_id', $cid);
+        }
+    }
+    foreach (array_keys($form['actions']) as $action) {
+        //dpr($form['actions'][$action]['#type']);
+          if ($action != 'preview' && isset($form['actions'][$action]['#type']) && in_array($form['actions'][$action]['#type'], $allowed_actions)) {
+            $form['actions'][$action]['#submit'][] = 'redirect_comment_form_submit';
+          }
+    }
+  }
+}
+
+
+/**
+ * Redirect the comment form to the respective language page
+ *
+ * @param $form
+ * @param \FormStateInterface $form_state
+ */
+/**
+ * Redirect the comment form to the respective language page
+ *
+ * @param $form
+ * @param \FormStateInterface $form_state
+ */
+function redirect_comment_form_submit($form, FormStateInterface $form_state) {
+    $cid = ($form_state->getValue('cid')) ? $form_state->getValue('cid') : $form_state->get('comment_id');
+    if ($cid) {
+        $nid = db_query("SELECT entity_id FROM {comment_field_data} WHERE cid = :cid", array(':cid' => $cid))->fetchField();
+        if (!$nid) {
+            $nid = $form_state->get('node_id');
+        }
+        if ($nid) {
+            $url = Url::fromRoute('entity.node.canonical', ['node' => $nid]);
+            $form_state->setRedirectUrl($url);
+        }
+    }
+}
+
+/**
+ * Unpacks sort_by and sort_order from the sort_bef_combine element.
+ *
+ * @param $form
+ * @param \FormStateInterface $form_state
+ */
+function app_helper_libs_bef_sort_combine_submit($form, FormStateInterface $form_state) {
+  $sortBy = $sortOrder = '';
+  $view = $form_state->get('view');
+  $query_params = \Drupal::request()->query->all();
+  $display_id = ($view->display_handler->isDefaulted('filters')) ? 'default' : $view->current_display;
+  $session = isset($_SESSION['views'][$view->storage->id()][$display_id]) ? $_SESSION['views'][$view->storage->id()][$display_id] : '';
+  if (isset($query_params['langcode']) && $session['bef_langcode']) {
+		$form_state->setValue('langcode', $session['bef_langcode']);
+  }
+
+  //$form_state->setValue('type', array('app_posts' => 'app_posts'));
+  if ($form_state->hasValue('sort_bef_combine')) {
+    list($sortBy, $sortOrder) = explode(' ', $form_state->getValue('sort_bef_combine'));
+  }
+
+  $form_state->setValue('sort_by', $sortBy);
+  $form_state->setValue('sort_order', $sortOrder);
+
+}
+
+
+function app_helper_libs_views_pre_view($view, $display_id, &$args) {
+    $view->name = 'wisdom_grid_view';
+    $display_id = 'block_8';
+
+
+    if ($view->name == 'wisdom_grid_view' && $display_id == 'block_8') {
+    // $filters = $view->display_handler->getOption('filters');
+    // drupal_set_message(print_r($filters['langcode']['value'], TRUE));
+     //$filters['langcode']['value'] = array('ta' => 'ta');
+     //drupal_set_message(print_r($filters, TRUE));
+     //$view->display_handler->overrideOption('filters', $filters);
+     //return $view;
+
+
+    }
+}
+
+
+
+/**
+ * Implements hook_views_query_alter
+ *
+ */
+function app_helper_libs_views_query_alter(ViewExecutable $view, QueryPluginBase $query) {
+	$active_theme = \Drupal::service('theme.manager')->getActiveTheme()->getName();
+	$display_id = ($view->display_handler->isDefaulted('filters')) ? 'default' : $view->current_display;
+	//drupal_set_message(\Drupal::service('uuid')->generate());
+	if ($view->storage->id() == 'wisdom_grid_view' && $active_theme == 'apptheme' && ($display_id == 'block_8' || $display_id == 'block_19')) {
+		$session = getBEFStoredData($view);
+		$sortFields = [];
+
+		// For Sorting ASC/DESC
+		$sortFields['created'] = 'node_field_data_created';
+		$sortFields['field_youtube_viewcount_value'] = 'node__field_youtube_viewcount_field_youtube_viewcount_value';
+		if ($session && isset($session['bef_sort_value']) && (isset($_GET['sort_bef_combine']) || isset($_POST['sort_bef_combine']))) {
+			list($sortBy, $sortOrder) = explode(' ', $session['bef_sort_value']);
+
+			if ($sortBy == 'created') {
+				$view->query->orderby [] = array(
+					'field' => $sortFields[$sortBy],
+					'direction' => $sortOrder,
+				);
+			}
+			if ($sortBy == 'field_youtube_viewcount_value') {
+				$view->query->orderby [] = array(
+					'field' => $sortFields[$sortBy],
+					'direction' => $sortOrder,
+				);
+			}
+		}
+
+
+
+        $filters = $view->display_handler->getOption('filters');
+		foreach ($query->where as &$condition_group) {
+		  foreach ($condition_group['conditions'] as &$condition) {
+            // If this is the part of the query filtering on title, chang the
+            // condition to filter on node ID.            -
+
+             replace_term_id_with_name_query_alter($condition);
+
+             replace_content_type_name_query_alter($condition);
+            //drupal_set_message(print_r($condition, TRUE));
+            //drupal_set_message(print_r($filters['langcode']['value'], TRUE));
+
+            //print_r($condition);
+            /*
+            if ($condition['field'] == 'node_field_data.langcode1') {
+                if ($condition['value'] == '' || in_array('All', $condition['value'])) {
+                	$condition = array(
+                		'field' => 'node_field_data.langcode',
+                		'value' => $filters['langcode']['value'],
+                		'operator' => 'IN',
+                	);
+                } else if (isset($condition['value'][0]) && $condition['value'][0]) {
+					// Do nothing
+				}
+				else {
+                   $language_id = \Drupal::languageManager()->getCurrentLanguage()->getId();
+                   $language =  \Drupal::languageManager()->getCurrentLanguage()->getName();
+
+                   $condition = array(
+                		'field' => 'node_field_data.langcode',
+                		'value' => array($language_id => $language_id),
+                		'operator' => 'IN',
+                	);
+                }
+            }*/
+			//\Drupal::logger($condition['field'])->info('<pre>'.print_r($condition, TRUE).'</pre>');
+		  }
+
+		   //\Drupal::logger('$filters')->info('<pre>'.print_r($filters, TRUE).'</pre>');
+		}
+
+		//dpq($query->query());
+
+	}
+	if ($view->storage->id() == 'man_mission_mystic_tabs_pages' && $active_theme == 'apptheme' && $display_id == 'block_4') {
+		foreach ($query->where as &$condition_group) {
+		  foreach ($condition_group['conditions'] as &$condition) {
+				replace_app_term_id_with_name_query_alter($condition);
+			}
+		}
+	}
+
+
+}
+
+/**
+* Get saved sort data from session.
+*
+* @return array|bool
+*   The saved sort data or NULL.
+*/
+function getBEFStoredData($view, $key = NULL, $reset = FALSE) {
+	  $display_id = ($view->display_handler->isDefaulted('filters')) ? 'default' : $view->current_display;
+	  if ($reset || !isset($_SESSION['views'][$view->storage->id()][$display_id])) {
+		$_SESSION['views'][$view->storage->id()][$display_id] = array();
+	  }
+	  $session = &$_SESSION['views'][$view->storage->id()][$display_id];
+	  if ($key && isset($session[$key])) {
+		  return $session[$key];
+	  }
+	  return ($session) ? $session : NULL;
+}
+
+function get_filter_sql_fields() {
+	return [
+		'type' => 'bef_type',
+		//'langcode' => 'bef_langcode',
+		'topic' => 'bef_topic',
+		'all_topics' => 'bef_all_topics',
+		'other_topics' => 'bef_other_topics',
+		//'sort_bef_combine' => 'bef_sort_value',
+	];
+}
+
+
+/**
+ * Implements hook_page_build().
+ */
+function app_helper_libs_page_build(&$page) {
+  $config = \Drupal::config('multiselect.settings');
+  $page['#attached']['js'][] = array(
+    'data' => array(
+      'multiselect' => array('widths' => $config->get('multiselect.widths')),
+    ),
+    'type' => 'setting',
+  );
+}
+
+
+/**
+* Modify the dependent filters based on the language input.
+*
+* @return NULL
+*/
+function updateDependentFilters(&$form, $form_state, $dependentFilters = array()) { // to be done
+	$query_params = $form_state->getUserInput();
+	$config = \Drupal::service('config.factory')->getEditable('app_helper_libs.settings');
+	$seo_content_types = map_content_types_seo_types();
+	// Dependent filters based on the key
+	foreach ($dependentFilters as $filter_type => $config_options) {
+		$filterOptions = [];
+		foreach ($config_options['langcodes'] as $index => $langcode) {
+			$filterOptions += $config->get($config_options['config_key'].$langcode);
+		}
+		if ($filterOptions) {
+			if ($filter_type == 'topic') {
+				$filterOptions = taxonomy_tid_to_name_url($filterOptions);
+				$filterOptions["seeall"] = t("See All Topics");
+			}
+			if ($filter_type == 'all_topics') {
+				$filterOptions = taxonomy_tid_to_name_url($filterOptions);
+			}
+			if ($filter_type == 'type') {
+				$newFilterOptions = [];
+				foreach($filterOptions as $ctype => $clabel) {
+								$seo_type = $seo_content_types[$ctype];
+								$newFilterOptions[$seo_type] = $clabel;
+				}
+				$filterOptions = $newFilterOptions;
+
+			}
+			$form[$filter_type]['#options'] = $filterOptions;
+		}
+	}
+
+	// Dependent filters - Sort
+	// Disable the "Most Viewed" sort for all other content types except "Videos"
+	if (isset($query_params['type']) && !in_array('app_videos', $query_params['type'])) {
+		unset($form['sort_bef_combine']['#options']['field_youtube_viewcount_value DESC']);
+	}
+}
+
+function app_helper_libs_js_alter(&$javascript, \Drupal\Core\Asset\AttachedAssetsInterface $assets) {
+	$current_path = \Drupal::service('path.current')->getPath();
+	$path_alias = \Drupal::service('path.alias_manager')->getAliasByPath($current_path);
+
+	if ((\Drupal::service('path.matcher')->matchPath($path_alias, '/wisdom')) || (\Drupal::service('path.matcher')->matchPath($path_alias, '/blog'))) {
+		$javascript['profiles/app/modules/views_infinite_scroll/js/infinite-scroll.js']['data'] = drupal_get_path('theme', 'apptheme') . '/js/infinite-scroll-custom-bootstrap.js';
+	}
+	if ((\Drupal::service('path.matcher')->matchPath($path_alias, '/program-details/nojs/*'))) {
+		unset($javascript['profiles/app/themes/apptheme/js/breadcrumb.js']['data']);
+	}
+}
+
+function app_helper_libs_views_pre_render(\Drupal\views\ViewExecutable $view) {
+	/*if($view->id() == "wisdom_grid_view" && $view->current_display == "block_8") {
+		$view->element['#attached']['library'][] = 'apptheme/infinite-custom';
+	}*/
+}
+
+function get_mysql_query_params($query_params, &$form) {
+	$sql_fields = get_filter_sql_fields();
+	$mysql_params = [];
+	foreach ($sql_fields as $db_field => $session_field) {
+		if (isset($query_params[$db_field])) {
+			$exp = is_array($query_params[$db_field]) ? $query_params[$db_field] : explode(",", $query_params[$db_field]);
+			  foreach ($exp as $k => $v) {
+				  $mysql_params[$db_field][$v] = $v;
+			  }
+			  if ($form) {
+				  $form[$db_field]['#value'] = $mysql_params[$db_field];
+			  }
+		}
+	}
+	return $mysql_params;
+}
+
+/**
+ * Themes the table showing existing entity references in the widget.
+ *
+ * @param array $variables
+ *   Contains the form element data from $element['entities'].
+ */
+function theme_inline_entity_form_entity_table1($variables) {
+  $renderer = \Drupal::service('renderer');
+  $form = $variables['form'];
+  $entity_type = $form['#entity_type'];
+
+  $fields = $form['#table_fields'];
+  $has_tabledrag = \Drupal::entityTypeManager()->getHandler($entity_type, 'inline_form')->isTableDragEnabled($form);
+
+  // Sort the fields by weight.
+  uasort($fields, '\Drupal\Component\Utility\SortArray::sortByWeightElement');
+
+  $header = [];
+  if ($has_tabledrag) {
+    $header[] = ['data' => '', 'class' => ['ief-tabledrag-header']];
+    $header[] = ['data' => t('Sort order'), 'class' => ['ief-sort-order-header']];
+  }
+  // Add header columns for each field.
+  $first = TRUE;
+  foreach ($fields as $field_name => $field) {
+    $column = ['data' => $field['label']];
+    // The first column gets a special class.
+    if ($first) {
+      $column['class'] = ['ief-first-column-header'];
+      $first = FALSE;
+    }
+    $header[] = $column;
+  }
+  $header[] = t('Operations');
+
+  // Build an array of entity rows for the table.
+  $rows = [];
+  foreach (Element::children($form) as $key) {
+    /** @var \Drupal\Core\Entity\FieldableEntityInterface $entity */
+    $entity = $form[$key]['#entity'];
+    $row_classes = ['ief-row-entity'];
+    $cells = [];
+    if ($has_tabledrag) {
+      $cells[] = ['data' => '', 'class' => ['ief-tabledrag-handle']];
+      $cells[] = $renderer->render($form[$key]['delta']);
+      $row_classes[] = 'draggable';
+    }
+    // Add a special class to rows that have a form underneath, to allow
+    // for additional styling.
+    if (!empty($form[$key]['form'])) {
+      $row_classes[] = 'ief-row-entity-form';
+    }
+
+    foreach ($fields as $field_name => $field) {
+	  $field_name1 = ($field_name == 'thumbnail') ? 'field_media_image_attachment' : $field_name;
+      $data = '';
+      if ($field['type'] == 'label') {
+        $data = $variables['form'][$key]['#label'];
+      }
+      elseif ($field['type'] == 'field' && $entity->hasField($field_name1)) {
+        $display_options = ['label' => 'hidden'];
+        if (isset($field['display_options'])) {
+          $display_options += $field['display_options'];
+        }
+
+        $data = $entity->get($field_name1)->view($display_options);
+      }
+      elseif ($field['type'] == 'callback') {
+        $arguments = [
+          'entity' => $entity,
+          'variables' => $variables,
+        ];
+        if (isset($field['callback_arguments'])) {
+          $arguments = array_merge($arguments, $field['callback_arguments']);
+        }
+
+        $data = call_user_func_array($field['callback'], $arguments);
+      }
+
+      $cells[] = ['data' => $data, 'class' => ['inline-entity-form-' . $entity_type . '-' . $field_name1]];
+    }
+
+    // Add the buttons belonging to the "Operations" column.
+    $cells[] = $renderer->render($form[$key]['actions']);
+    // Create the row.
+    $rows[] = ['data' => $cells, 'class' => $row_classes];
+    // If the current entity array specifies a form, output it in the next row.
+    if (!empty($form[$key]['form'])) {
+      $row = [
+        ['data' => $renderer->render($form[$key]['form']), 'colspan' => count($fields) + 1],
+      ];
+      $rows[] = ['data' => $row, 'class' => ['ief-row-form'], 'no_striping' => TRUE];
+    }
+  }
+
+  if (!empty($rows)) {
+    $tabledrag = [];
+    if ($has_tabledrag) {
+      $tabledrag = [
+        [
+          'action' => 'order',
+          'relationship' => 'sibling',
+          'group' => 'ief-entity-delta',
+        ],
+      ];
+    }
+
+    $table = [
+      '#type' => 'table',
+      '#header' => $header,
+      '#rows' => $rows,
+      '#attributes' => [
+        'id' => 'ief-entity-table-' . $form['#id'],
+        'class' => ['ief-entity-table'],
+      ],
+      '#tabledrag' => $tabledrag,
+    ];
+
+    return $renderer->render($table);
+  }
+}
+
+/**
+* Themes the table showing existing entity references in the widget.
+*
+* @param array $variables
+*   Contains the form element data from $element['entities'].
+*/
+function replace_term_id_with_name_query_alter(&$condition) {
+	$key_field = '';
+	$tids = [];
+	$multi_value = false;
+
+    $query_params = \Drupal::request()->query->all();
+    $parameters = \Drupal::routeMatch()->getParameters();
+	//dsm($parameters->count());
+    $paramkey = $parameters->get('paramkey');
+    $paramdata = $parameters->get('paramdata');
+
+
+
+	if ($condition['field'] == 'node__field_app_tags.field_app_tags_target_id IN(:node__field_app_tags_field_app_tags_target_id[])') {
+	   //drupal_set_message("in if 1");
+		$key_field = ':node__field_app_tags_field_app_tags_target_id[]';
+		$multi_value = true;
+
+	}
+
+	if ($condition['field'] == 'node__field_app_tags.field_app_tags_target_id = :node__field_app_tags_field_app_tags_target_id') {
+	    //drupal_set_message("in if 2");
+
+
+		$key_field = ':node__field_app_tags_field_app_tags_target_id';
+        if (isset($paramkey) && ($paramkey == "topic")) {
+          $condition['value'][$key_field] = $paramdata;
+
+           if(isset($query_params['topic']) && $query_params['topic'] != "") {
+             //drupal_set_message(print_r($query_params['topic'], TRUE));
+             //$condition['value'][$key_field]= [$paramdata, $query_params['topic']];
+           }
+          //Array ( [field] => node__field_app_tags.field_app_tags_target_id = :node__field_app_tags_field_app_tags_target_id
+          //[value] => Array ( [:node__field_app_tags_field_app_tags_target_id] => yoga-program ) [operator] => formula )
+
+        }
+
+        // drupal_set_message(print_r($condition['value'], TRUE));
+     //drupal_set_message(print_r($condition['field'], TRUE));
+
+    }
+
+    if (($condition['field'] == 'node__field_app_tags.field_app_tags_target_id IS NOT NULL') || ($condition['field'] == 'node__field_app_tags.field_app_tags_target_id')) {
+
+        //drupal_set_message("in if 3");
+
+
+        if (isset($paramkey) && ($paramkey == "topic")) {
+          $condition['field'] = 'node__field_app_tags.field_app_tags_target_id = :node__field_app_tags_field_app_tags_target_id';
+          $key_field = ':node__field_app_tags_field_app_tags_target_id';
+
+          $condition['value'][$key_field] = $paramdata;
+
+          //Array ( [field] => node__field_app_tags.field_app_tags_target_id = :node__field_app_tags_field_app_tags_target_id
+          //[value] => Array ( [:node__field_app_tags_field_app_tags_target_id] => yoga-program ) [operator] => formula )
+
+        }
+
+        //drupal_set_message(print_r($condition['value'], TRUE));
+     //drupal_set_message(print_r($condition['field'], TRUE));
+
+    }
+
+
+
+
+	if ($key_field) {
+		$cleanTaxonomy = getCleanTaxonomy('app_tags');
+        if ($condition['value'] == "") {
+            $condition['value'][$key_field] = [$paramdata, $query_params['topic']];
+        }
+		if (is_array($condition['value'][$key_field])) {
+			foreach($condition['value'][$key_field] as $key => $val) {
+				if (!is_numeric($key)) {
+					if (isset($cleanTaxonomy[$key])) {
+						$tids[$cleanTaxonomy[$key]] = $cleanTaxonomy[$key];
+					}
+				}
+			}
+		}
+		else {
+			if (!is_numeric($condition['value'][$key_field])) {
+				if (isset($cleanTaxonomy[$condition['value'][$key_field]])) {
+					$tids[$cleanTaxonomy[$condition['value'][$key_field]]] = $cleanTaxonomy[$condition['value'][$key_field]];
+				}
+			}
+		}
+
+
+		if ($tids) {
+			if ($multi_value) {
+			   //drupal_set_message("in if");
+				$condition = array(
+				'field' => 'node__field_app_tags.field_app_tags_target_id IN('.$key_field.')',
+				'value' => [$key_field => $tids],
+				'operator' => 'formula',
+				);
+			}
+			else {
+			   //drupal_set_message("in else");
+				$condition = array(
+				'field' => 'node__field_app_tags.field_app_tags_target_id = '.$key_field,
+				'value' => [$key_field => reset($tids)],
+				'operator' => 'formula',
+				);
+			}
+		}
+	}
+
+
+}
+
+
+function replace_app_term_id_with_name_query_alter(&$condition) {
+	$key_field = '';
+	$tids = [];
+	//print_r($condition);
+	//\Drupal::logger('query_cond1')->info('<pre>'.print_r($condition, TRUE).'</pre>');
+	if ($condition['field'] == 'taxonomy_index.tid = :taxonomy_index_tid1') {
+		$key_field = ':taxonomy_index_tid1';
+	}
+	if ($condition['field'] == 'taxonomy_index.tid = :taxonomy_index_tid') {
+		$key_field = ':taxonomy_index_tid';
+	}
+	if ($key_field) {
+		$cleanTaxonomy = getCleanTaxonomy('app_category');
+		if (is_array($condition['value'][$key_field])) {
+			foreach($condition['value'][$key_field] as $key => $val) {
+				if (!is_numeric($key)) {
+					if (isset($cleanTaxonomy[$key])) {
+						$tids[$cleanTaxonomy[$key]] = $cleanTaxonomy[$key];
+					}
+				}
+			}
+		}
+		else {
+			if (!is_numeric($condition['value'][$key_field])) {
+				if (isset($cleanTaxonomy[$condition['value'][$key_field]])) {
+					$tids[$cleanTaxonomy[$condition['value'][$key_field]]] = $cleanTaxonomy[$condition['value'][$key_field]];
+				}
+			}
+		}
+
+		if ($tids) {
+				$condition = array(
+				'field' => 'taxonomy_index.tid = '.$key_field,
+				'value' => [$key_field => reset($tids)],
+				'operator' => 'formula',
+				);
+
+		}
+		//\Drupal::logger('query_cond2')->info('<pre>'.print_r($condition, TRUE).'</pre>');
+	}
+}
+/**
+* Get the clean taxonomy strings using vocubulary id
+*
+* @param $conditional_fields
+*   Set of conditional_fields in the form of key value pairs
+* @return \Drupal\taxonomy\Entity\Term object
+*/
+function getCleanTaxonomy($vid) {
+	$function_id = (__FUNCTION__ . $vid);
+	$cleanTaxonomy = &drupal_static($function_id);
+	if (!isset($cleanTaxonomy)) {
+		$cleanTaxonomy = \Drupal::service('app_helper_libs.term_helper')->getCleanTaxonomy($vid);
+	}
+	return $cleanTaxonomy;
+}
+
+/**
+* Modify the dependent filters based on the term name.
+*
+* @return array
+*/
+function taxonomy_tid_to_name_url($filterOptions) {
+	$termNameOptions = [];
+	foreach($filterOptions as $tid => $option) {
+		$term = Term::load($tid);
+		$term_name = \Drupal::service('pathauto.alias_cleaner')->cleanString($term->get('name')->value);
+		$termNameOptions[$term_name] = t($term->get('name')->value);
+	}
+	return $termNameOptions;
+}
+
+/**
+* Modify the dependent filters based on the Content type name.
+*
+* @return array
+*/
+function map_content_types_seo_types() {
+	$seo_types = [
+		'app_posts' => 'article',
+		'app_podcasts' => 'audio',
+		'app_poetry' => 'poem',
+		'app_quotes' => 'quotes',
+		'app_videos' => 'video',
+		'app_sadhguru_spot' => 'sadhguru-spot',
+	];
+	return $seo_types;
+}
+/**
+* Themes the table showing existing entity references in the widget.
+*
+* @param array $variables
+*   Contains the form element data from $element['entities'].
+*/
+function replace_content_type_name_query_alter(&$condition) {
+
+
+
+  $seo_types = map_content_types_seo_types();
+
+  $query_params = \Drupal::request()->query->all();
+  $parameters = \Drupal::routeMatch()->getParameters();
+  $paramkey = $parameters->get('paramkey');
+  $paramdata = $parameters->get('paramdata');
+  $request_params = \Drupal::request()->request->all();
+
+  if ($paramkey == 'type' && $paramdata && $parameters->count()) {
+	$_SESSION['route_parameters'] = $parameters;
+  }
+  else {
+	  if (!isset($request_params['page'])) {
+		unset($_SESSION['route_parameters']);
+	  }
+  }
+    $query_content_types = [];
+
+	if ($condition['field'] == 'node_field_data.type' && !isset($request_params['ajax_page_state']) && isset($_SESSION['route_parameters'])) {
+		$parameters = $_SESSION['route_parameters'];
+		$paramkey = $parameters->get('paramkey');
+		$paramdata = $parameters->get('paramdata');
+        foreach ($condition['value'] as $index => $seo_content_type) {
+            if ($paramkey == "type") {
+              $seo_content_type = $paramdata;
+            }
+        	$content_type = array_search($seo_content_type, $seo_types);
+        	$query_content_types[$index] = $content_type;
+        }
+        if ($query_content_types) {
+        	$condition = array(
+        		'field' => 'node_field_data.type',
+        		'value' => $query_content_types,
+        		'operator' => 'in',
+        	);
+        }
+        //\Drupal::logger('wisdom url')->info('<pre>in first if '.print_r($condition, TRUE).'</pre>');
+
+    } else if (($condition['field'] == 'node_field_data.type') && isset($request_params['ajax_page_state']) && isset($_SESSION['route_parameters'])) {
+        	$parameters = $_SESSION['route_parameters'];
+    		$paramkey = $parameters->get('paramkey');
+            if ($paramkey == "type") {
+                $paramdata = $condition['value'];
+                //\Drupal::logger('wisdom url paramdata')->info('<pre>'.print_r($paramdata, TRUE).'</pre>');
+                $sessiondata = $parameters->get('paramdata');
+                //\Drupal::logger('wisdom url filter sessiondata')->info('<pre>'.print_r($sessiondata, TRUE).'</pre>');
+            }
+            if ($paramdata[0] != "") {
+               	$content_type = array_search($paramdata[0], $seo_types);
+        		$query_content_types[] = $content_type;
+                //\Drupal::logger('wisdom url filter content types - param')->info('<pre>'.print_r($query_content_types, TRUE).'</pre>');
+
+                $content_type = array_search($sessiondata, $seo_types);
+    		    $query_content_types[] = $content_type;
+                //\Drupal::logger('wisdom url filter content types - session')->info('<pre>'.print_r($query_content_types, TRUE).'</pre>');
+
+                if ($query_content_types) {
+                	$condition = array(
+                		'field' => 'node_field_data.type',
+                		'value' => array_filter($query_content_types),
+                		'operator' => 'in',
+                	);
+                }
+            }
+            //\Drupal::logger('wisdom url filter content types')->info('<pre>'.print_r($query_content_types, TRUE).'</pre>');
+            //\Drupal::logger('wisdom url condition')->info('<pre>'.print_r($condition, TRUE).'</pre>');
+           // \Drupal::logger('wisdom url')->info('<pre>in second if '.print_r($condition, TRUE).'</pre>');
+           // \Drupal::logger('wisdom url')->info('<pre>in second if '.print_r($condition['operator'], TRUE).'</pre>');
+     } else {
+        if ($condition['field'] == 'node_field_data.type' && $condition['operator'] == 'in') { // && $condition['operator'] == 'in'
+            foreach ($condition['value'] as $index => $seo_content_type) {
+                if ($paramkey == "type") {
+                  $seo_content_type = $paramdata;
+                }
+            	$content_type = array_search($seo_content_type, $seo_types);
+            	$query_content_types[$index] = $content_type;
+            }
+            if ($query_content_types) {
+            	$condition = array(
+            		'field' => 'node_field_data.type',
+            		'value' => $query_content_types,
+            		'operator' => 'in',
+            	);
+            }
+	        //\Drupal::logger('wisdom url')->info('<pre>in third if '.print_r($condition, TRUE).'</pre>');
+        }
+     }
+
+
+	/*if ($condition['field'] == 'node_field_data.type' && isset($request_params['ajax_page_state']) && $condition['operator'] == 'not in' && isset($_SESSION['route_parameters'])) {
+		$parameters = $_SESSION['route_parameters'];
+		$paramkey = $parameters->get('paramkey');
+		$paramdata = $parameters->get('paramdata');
+
+		if ($paramkey == "type") {
+		  $seo_content_type = $paramdata;
+
+		}
+		$content_type = array_search($seo_content_type, $seo_types);
+		$query_content_types[] = $content_type;
+        if ($query_content_types) {
+        	$condition = array(
+        		'field' => 'node_field_data.type',
+        		'value' => $query_content_types,
+        		'operator' => 'in',
+        	);
+        }
+         \Drupal::logger('wisdom url condition')->info('<pre>'.print_r($condition, TRUE).'</pre>');
+	}
+
+    */
+}
+
+function getTidByName($names = [], $vid = 'app_category') {
+	$tids = [];
+	foreach($names as $name){
+			$properties = [];
+			if (!empty($name)) {
+			  $properties['name'] = $name;
+			}
+			if (!empty($vid)) {
+			  $properties['vid'] = $vid;
+			}
+			$terms = \Drupal::entityManager()->getStorage('taxonomy_term')->loadByProperties($properties);
+			$term = reset($terms);
+			$tid = !empty($term) ? $term->id() : 0;
+			if ($tid) {
+				$tids[$tid] = $tid;
+			}
+	}
+	return $tids;
+
+  }
+
+/**
+* Returned the view object based on the view name and display id
+*/
+function views_get_view($view_name, $display_id = 'default') {
+    $args = func_get_args();
+    // Remove $name and $display_id from the arguments.
+    unset($args[0], $args[1]);
+
+    $view = Views::getView($view_name);
+    $view->build($display_id);
+    //$total_rows = $view->query->query()->countQuery()->execute()->fetchField();
+    return $view;
+}
+
+/**
+* Set dynamic block title by taxonomy fields
+*/
+function set_block_title_by_taxonomy($taxonomy_term_object, &$variables) {
+    $paragraph_reference_field = 'field_component_reference';
+	if ($taxonomy_term_object && $taxonomy_term_object->id() && $taxonomy_term_object->hasField($paragraph_reference_field)) {
+		$target_id = $taxonomy_term_object->get($paragraph_reference_field)->target_id;
+		foreach ($taxonomy_term_object->{$paragraph_reference_field} as $key => $field) {
+			if (isset($field->target_id) && $field->target_id) {
+				$paragraph = Paragraph::load($field->target_id);
+				list($view_name, $display_id) = explode('-', $paragraph->get('field_para_component_plugin')->value);
+				if ($view_name && $display_id) {
+					if ($variables['derivative_plugin_id'] == $view_name.'-'.$display_id) {
+						if (is_array($variables['label'])) {
+							$variables['label']['#markup'] = $paragraph->get('field_para_component_title')->value;
+						}
+						else {
+							$variables['label'] = $paragraph->get('field_para_component_title')->value;
+						}
+					}
+				} else if ($view_name) {
+					/*
+					 * Custom Block Plugin  doesn't have display_id
+					 * Use base_plugin_id for overwrite default name
+					 */
+					if ($variables['base_plugin_id'] == $view_name) {
+						if (is_array($variables['label'])) {
+							$variables['label']['#markup'] = $paragraph->get('field_para_component_title')->value;
+						}
+						else {
+							$variables['label'] = $paragraph->get('field_para_component_title')->value;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Implements hook_system_breadcrumb_alter().
+ *
+ * Append node title to breadcrumb for certain content types and views that are
+ * not in the menu.
+ *
+ * @param \Drupal\Core\Breadcrumb\Breadcrumb $breadcrumb
+ * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
+ * @param array $context
+ */
+function app_helper_libs_system_breadcrumb_alter(Breadcrumb &$breadcrumb, RouteMatchInterface $route_match, array $context) {
+  if ($breadcrumb && !\Drupal::service('router.admin_context')->isAdminRoute()) {
+    // if the page is a view, attach a breadcrumb
+    if ($route_match->getRouteName() == 'app_prog_events.program_incident_route') {
+      //$title = \Drupal::service('title_resolver')->getTitle($request, $route_match->getRouteObject());
+      //$breadcrumb->addLink(Link::createFromRoute('Home1', '<front>'));
+      $breadcrumb->addLink(Link::createFromRoute('Program details', '<nolink>'));
+      $breadcrumb->addCacheContexts(['route.name']);
+    }
+  }
+}
+
+
+
+

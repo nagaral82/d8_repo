@@ -1,0 +1,14 @@
+name: 'app Helper library'
+description: 'Set of helper functions/utilities for app application'
+type: module
+package: app
+# core: 8.x
+dependencies:
+  - media_entity
+  - media_entity_image
+
+# Information added by Drupal.org packaging script on 2016-06-03
+version: '8.x'
+core: '8.x'
+project: 'app_helper_libs'
+datestamp: 1464987842

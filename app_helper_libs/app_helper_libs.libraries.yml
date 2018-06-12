@@ -1,0 +1,5 @@
+newsletter-form:
+  js:
+    js/email-subscription.js: {}
+  dependencies:
+    - core/jquery
